@@ -7,7 +7,7 @@ class Layer:
     def forward(self, input):
         raise NotImplementedError()
     
-    def backward(self, output_gradient, learning_rate):
+    def backward(self, grad_output):
         raise NotImplementedError()
 
     def __call__(self, X):
@@ -40,7 +40,7 @@ class Softmax(Layer):
         return self.output
 
     def backward(self, grad_output):
-        return grad_output * (self.output * (1 - self.output))
+        return grad_output # softmax 和 cross entropy 一起使用， 梯度在cross entropy里面计算，这里直接回传
     
 class Sigmoid(Layer):
     def __init__(self):
@@ -58,10 +58,11 @@ class Sigmoid(Layer):
 
 
 class CrossEntropy(Layer):
-    def __init__(self):
+    def __init__(self, classifier = 'softmax'):
         super().__init__()
         self.input = None
         self.output = None
+        self.classifier = classifier
 
     def forward(self, X, y):
         self.input = X
@@ -70,8 +71,11 @@ class CrossEntropy(Layer):
         self.output = -np.sum(y * np.log(X)) / self.batchsize
         return self.output
 
-    def backward(self):
-        return (self.input - self.label) / self.batchsize
+    def backward(self, grad_output = None):
+        if self.classifier == 'softmax':
+            return (self.input - self.label) / self.batchsize
+        else:
+            raise NotImplementedError()
 
 class Linear(Layer):
     def __init__(self, input_size, output_size):
@@ -98,4 +102,23 @@ class Linear(Layer):
         self.grad_bias = np.sum(grad_output, axis=0, keepdims=True) / self.batchsize
         return grad_input
     
+class Dropout(Layer):
+    def __init__(self, p=0.5):
+        super().__init__()
+        self.p = p
+        self.mask = None
+        self.training = True
+
+
+    def forward(self, X):
+        if self.training:
+            self.mask = (np.random.rand(*X.shape) > self.p).astype(float)
+            return X *self.mask /(1.0 - self.p)
+        else:
+            return X
     
+    def backward(self, grad_output):
+        if self.training:
+            return grad_output * self.mask / (1.0 - self.p)
+        else:
+            return grad_output
