@@ -36,7 +36,9 @@ class Softmax(Layer):
 
     def forward(self, X):
         self.input = X
-        self.output = np.exp(X) / np.sum(np.exp(X), axis=1, keepdims=True)
+        X_shifted = X - np.max(X, axis=1, keepdims=True) #log trick，防止数值溢出
+        exp_X_shifted = np.exp(X_shifted)
+        self.output = exp_X_shifted / np.sum(exp_X_shifted, axis=1, keepdims=True)
         return self.output
 
     def backward(self, grad_output):
@@ -50,7 +52,8 @@ class Sigmoid(Layer):
 
     def forward(self, X):
         self.input = X
-        self.output = 1 / (1 + np.exp(-X))
+        X_clipped = np.clip(X, -500, 500) #防止数值溢出
+        self.output = 1 / (1 + np.exp(-X_clipped))
         return self.output
 
     def backward(self, grad_output):
@@ -58,19 +61,23 @@ class Sigmoid(Layer):
 
 
 class CrossEntropy(Layer):
-    def __init__(self, classifier = 'softmax'):
+    def __init__(self, cls, classifier = 'softmax'):
         super().__init__()
         self.input = None
         self.output = None
+        self.cls = cls
         self.classifier = classifier
 
     def forward(self, X, y):
         self.input = X
-        self.label = y
+        self.label = self.one_hot(y)
         self.batchsize = X.shape[0]
-        self.output = -np.sum(y * np.log(X)) / self.batchsize
+        self.output = -np.sum(self.label * np.log(X + 1e-6)) / self.batchsize
         return self.output
-
+    
+    def one_hot(self, y):
+        return np.eye(self.cls)[y]
+    
     def backward(self, grad_output = None):
         if self.classifier == 'softmax':
             return (self.input - self.label) / self.batchsize
@@ -80,13 +87,13 @@ class CrossEntropy(Layer):
 class Linear(Layer):
     def __init__(self, input_size, output_size):
         super().__init__()
-        self.weights = np.random.randn(input_size, output_size) * np.sqrt(2. / input_size)
+        self.weights = np.random.randn(input_size, output_size) * np.sqrt(2. / input_size + output_size) * 0.005 # Xavier initialization
         self.bias = np.zeros((1, output_size))
         self.input = None
         self.output = None
         self.optimizable = True
-        self.grad_weights = None
-        self.grad_bias = None
+        self.grad_weights = np.zeros_like(self.weights)
+        self.grad_bias = np.zeros_like(self.bias)
         self.batchsize = None
 
     def forward(self, X):
@@ -95,12 +102,11 @@ class Linear(Layer):
         self.output = np.dot(X, self.weights) + self.bias
         return self.output
 
-
     def backward(self, grad_output):
-        grad_input = np.matmul(grad_output, self.weights.T)
-        self.grad_weights = np.matmul(self.input.T, grad_output) / self.batchsize
-        self.grad_bias = np.sum(grad_output, axis=0, keepdims=True) / self.batchsize
-        return grad_input
+        self.grad_input = np.matmul(grad_output, self.weights.T)
+        self.grad_weights = np.matmul(self.input.T, grad_output)
+        self.grad_bias = np.sum(grad_output, axis=0, keepdims=True)
+        return self.grad_input
     
 class Dropout(Layer):
     def __init__(self, p=0.5):

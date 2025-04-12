@@ -1,1 +1,3 @@
-from nn import layers
+from .model import Model
+from .layers import *
+from .optimizer import *
