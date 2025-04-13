@@ -108,3 +108,28 @@ def compose(*transforms):
         return x
     return composed_transform
 
+def random_flip(x):
+    """随机水平翻转图像"""
+    if np.random.rand() > 0.5:
+        return np.flip(x, axis=1)  # 水平翻转
+    return x
+
+def random_crop(x, padding=4):
+    """随机裁剪图像，先在边缘padding再裁剪"""
+    H, W, C = x.shape
+    x_padded = np.pad(x, ((padding, padding), (padding, padding), (0, 0)), mode='constant')
+    top = np.random.randint(0, 2 * padding)
+    left = np.random.randint(0, 2 * padding)
+    return x_padded[top:top+H, left:left+W, :]
+
+def random_noise(x, noise_level=0.05):
+    """加随机高斯噪声"""
+    noise = np.random.randn(*x.shape) * noise_level
+    x_noisy = x + noise
+    return np.clip(x_noisy, 0.0, 1.0)  # 保持在[0,1]
+
+def random_brightness(x, brightness_range=0.2):
+    """随机调整亮度"""
+    factor = 1.0 + np.random.uniform(-brightness_range, brightness_range)
+    x = x * factor
+    return np.clip(x, 0.0, 1.0)
