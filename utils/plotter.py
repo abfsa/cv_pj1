@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
 
 class Plotter:
     def __init__(self):
@@ -10,7 +12,7 @@ class Plotter:
         
         # 初始化画布
         self.fig, self.axs = plt.subplots(1, 2, figsize=(12, 5))
-        plt.ion()  # 打开交互模式，实时更新
+        # plt.ion()  # 打开交互模式，实时更新
         
     def update(self, train_acc=None, val_acc=None, test_acc=None, train_loss=None, val_loss=None):
         if train_acc is not None:
@@ -60,5 +62,4 @@ class Plotter:
         print(f"Plot saved to {path}")
         
     def close(self):
-        plt.ioff()
-        plt.show()
+        plt.close()
